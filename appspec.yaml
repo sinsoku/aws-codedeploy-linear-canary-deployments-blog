@@ -1,0 +1,9 @@
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: "<taskDefArn>"
+        LoadBalancerInfo:
+          ContainerName: "aws-codedeploy-linear-canary-deployments-blog-svc"
+          ContainerPort: 80
