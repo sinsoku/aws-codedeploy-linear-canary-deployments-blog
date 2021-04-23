@@ -3,9 +3,11 @@ name: deploy
 on: push
 
 jobs:
-  deploy:
+  canary:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+    outputs:
+      deployment-id: ${{ steps.code-deploy.outputs.codedeploy-deployment-id }}
 
     steps:
     - uses: actions/checkout@v2
@@ -45,12 +47,42 @@ jobs:
         image: ${{ steps.build-image.outputs.image }}
 
     - name: Deploy Amazon ECS task definition
+      id: code-deploy
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
         task-definition: ${{ steps.task-def.outputs.task-definition }}
         service: aws-codedeploy-linear-canary-deployments-blog-svc
         cluster: aws-codedeploy-linear-canary-deployments-blog-ECSCluster-fzyrbZ2yEwnU
-        wait-for-service-stability: true
         codedeploy-appspec: appspec.yaml
         codedeploy-application: ecs-blog-app
         codedeploy-deployment-group: aws-codedeploy-linear-canary-deployments-blog-app-dg
+
+    - name: Wait a target group for canary
+      run: |
+        name=$(aws deploy get-deployment --deployment-id ${{ steps.code-deploy.outputs.codedeploy-deployment-id }} \
+              --query 'deploymentInfo.loadBalancerInfo.targetGroupPairInfoList[].targetGroups[1].name' \
+              --output text)
+        arn=$(aws elbv2 describe-target-groups --names $name \
+              --query 'TargetGroups[].TargetGroupArn' \
+              --output text)
+        aws elbv2 wait target-in-service --target-group-arn $arn
+
+  production:
+    needs: canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-1
+
+    - name: Wait a deployment
+      run: aws deploy wait deployment-successful --deployment-id ${{ needs.canary.outputs.deployment-id }}
+
+    - name: Stop a deployment
+      if: cancelled()
+      run: aws deploy stop-deployment --deployment-id ${{ needs.canary.outputs.deployment-id }} --auto-rollback-enabled
