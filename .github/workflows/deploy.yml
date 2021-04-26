@@ -87,10 +87,12 @@ jobs:
 
   rollback:
     needs: [canary, production]
-    if: needs.production.result == 'cancelled'
+    if: needs.production.result != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
+    - run: echo ${{ needs.production.result }}
+
     - name: Stop a deployment
       run: aws deploy stop-deployment --deployment-id ${{ needs.canary.outputs.deployment-id }} --auto-rollback-enabled
