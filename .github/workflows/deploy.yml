@@ -87,7 +87,7 @@ jobs:
 
   rollback:
     needs: [canary, production]
-    if: needs.production.result != 'success'
+    if: cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
