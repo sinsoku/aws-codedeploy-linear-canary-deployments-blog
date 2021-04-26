@@ -58,6 +58,7 @@ jobs:
         codedeploy-application: ecs-blog-app
         codedeploy-deployment-group: aws-codedeploy-linear-canary-deployments-blog-app-dg
 
+    # TODO: Should wait for the target group on the test listner
     - name: Wait a target group for canary
       run: |
         name=$(aws deploy get-deployment --deployment-id ${{ steps.code-deploy.outputs.codedeploy-deployment-id }} \
@@ -101,3 +102,5 @@ jobs:
 
     - name: Stop a deployment
       run: aws deploy stop-deployment --deployment-id ${{ needs.canary.outputs.deployment-id }} --auto-rollback-enabled
+
+    # TODO: Restore sha on canary environment using Deployment API
