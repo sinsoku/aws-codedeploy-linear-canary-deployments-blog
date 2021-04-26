@@ -6,6 +6,7 @@ jobs:
   canary:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: canary
     outputs:
       deployment-id: ${{ steps.code-deploy.outputs.codedeploy-deployment-id }}
 
@@ -71,6 +72,7 @@ jobs:
     needs: canary
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: production
 
     steps:
     - name: Configure AWS credentials
@@ -83,6 +85,12 @@ jobs:
     - name: Wait a deployment
       run: aws deploy wait deployment-successful --deployment-id ${{ needs.canary.outputs.deployment-id }}
 
+  rollback:
+    needs: [canary, production]
+    if: needs.production.result == 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
     - name: Stop a deployment
-      if: cancelled()
       run: aws deploy stop-deployment --deployment-id ${{ needs.canary.outputs.deployment-id }} --auto-rollback-enabled
