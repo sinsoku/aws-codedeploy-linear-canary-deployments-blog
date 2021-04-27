@@ -58,16 +58,17 @@ jobs:
         codedeploy-application: ecs-blog-app
         codedeploy-deployment-group: aws-codedeploy-linear-canary-deployments-blog-app-dg
 
-    # TODO: Should wait for the target group on the test listner
-    - name: Wait a target group for canary
+    - name: Wait for the canary environment to deploy
       run: |
-        name=$(aws deploy get-deployment --deployment-id ${{ steps.code-deploy.outputs.codedeploy-deployment-id }} \
-              --query 'deploymentInfo.loadBalancerInfo.targetGroupPairInfoList[].targetGroups[1].name' \
+        names=$(aws deploy get-deployment --deployment-id ${{ steps.code-deploy.outputs.codedeploy-deployment-id }} \
+              --query 'deploymentInfo.loadBalancerInfo.targetGroupPairInfoList[].targetGroups[].name' \
               --output text)
-        arn=$(aws elbv2 describe-target-groups --names $name \
+        arns=$(aws elbv2 describe-target-groups --names $names \
               --query 'TargetGroups[].TargetGroupArn' \
               --output text)
-        aws elbv2 wait target-in-service --target-group-arn $arn
+        for arn in $arns; do
+          aws elbv2 wait target-in-service --target-group-arn $arn
+        done
 
   production:
     needs: canary
