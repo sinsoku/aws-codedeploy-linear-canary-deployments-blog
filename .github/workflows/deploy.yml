@@ -70,6 +70,10 @@ jobs:
           aws elbv2 wait target-in-service --target-group-arn $arn
         done
 
+    - name: Stop a deployment
+      if: cancelled() && steps.code-deploy.outputs.codedeploy-deployment-id
+      run: aws deploy stop-deployment --deployment-id ${{ steps.code-deploy.outputs.codedeploy-deployment-id }} --auto-rollback-enabled
+
   production:
     needs: canary
     runs-on: ubuntu-latest
